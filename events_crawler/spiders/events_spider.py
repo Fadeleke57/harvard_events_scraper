@@ -1,6 +1,7 @@
 import scrapy
 import re
 import pandas as pd
+from datetime import datetime
 
 class HarvardEventsSpider(scrapy.Spider):
     name = "harvard_events"
@@ -14,7 +15,7 @@ class HarvardEventsSpider(scrapy.Spider):
         for url in start_urls:
             yield scrapy.Request(url, self.parse_search_results)
 
-        for i in range(2, 169):  # number of pages for events
+        for i in range(2, 170):  # number of pages for events
             yield scrapy.Request(f'https://www.math.harvard.edu/event_archive/page/{i}/', self.parse_search_results)
 
     def parse_search_results(self, response):
@@ -60,7 +61,15 @@ class HarvardEventsSpider(scrapy.Spider):
             texts = response.xpath('//*[@id="main"]/div/div[1]/div/div//div//text()').getall()[2:]
             text = '\n'.join(texts)
 
-        images = response.css('img::attr(src)').getall()
+        images = response.css('div.event_item img::attr(src)').getall()
+
+        modified_date = response.css('meta[property="article:modified_time"]::attr(content)').get()
+
+        if modified_date:
+            date_object = datetime.strptime(modified_date, "%Y-%m-%dT%H:%M:%S%z")
+            formatted_date = date_object.strftime("%m/%d/%Y %I:%M %p")
+        else:
+            formatted_date = "No date value found"
 
         event_data = {
             'type': 'event',
@@ -70,9 +79,9 @@ class HarvardEventsSpider(scrapy.Spider):
             'date': date_time,
             'abstract': full_speaker,
             'text': text,
-            #'date-created': date_time,
             'images': images,
             'link_to_article': link_to_article,
+            'date_created' : formatted_date
         }
 
         self.events_data.append(event_data)
