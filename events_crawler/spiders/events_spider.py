@@ -1,8 +1,13 @@
 import scrapy
 import re
+import pandas as pd
 
 class HarvardEventsSpider(scrapy.Spider):
     name = "harvard_events"
+
+    def __init__(self, *args, **kwargs):
+        super(HarvardEventsSpider, self).__init__(*args, **kwargs)
+        self.events_data = []
 
     def start_requests(self):
         start_urls = ['https://www.math.harvard.edu/event_archive/']
@@ -55,13 +60,23 @@ class HarvardEventsSpider(scrapy.Spider):
             texts = response.xpath('//*[@id="main"]/div/div[1]/div/div//div//text()').getall()[2:]
             text = '\n'.join(texts)
 
-        yield {
+        images = response.css('img::attr(src)').getall()
+
+        event_data = {
             'type': 'event',
             'header': header,
             'category': category,
-            'venue_and_adress': venue_and_address,
+            'venue_and_address': venue_and_address,
             'date': date_time,
-            'speaker': full_speaker,
+            'abstract': full_speaker,
             'text': text,
+            #'date-created': date_time,
+            'images': images,
             'link_to_article': link_to_article,
         }
+
+        self.events_data.append(event_data)
+
+    def closed(self, reason):
+        df = pd.DataFrame(self.events_data)
+        df.to_excel('harvard_events.xlsx', index=False)
